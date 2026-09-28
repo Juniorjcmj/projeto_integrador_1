@@ -40,6 +40,10 @@ from ia import (
 
 import estilos
 importlib.reload(estilos)
+
+import analise_temporal
+importlib.reload(analise_temporal)
+from analise_temporal import aba_previsao, aba_series
 from estilos import (
     AZUL,
     CONFIG_PLOTLY,
@@ -55,6 +59,7 @@ from estilos import (
     etapas,
     fonte_status,
     kpi,
+    leitura,
     secao,
     tema,
 )
@@ -247,11 +252,13 @@ st.markdown(achados(itens), unsafe_allow_html=True)
 if n_sem_data:
     st.caption(f"{n_sem_data} registro(s) sem data de desligamento ficam fora dos gráficos temporais.")
 
-tab_geral, tab_por_que, tab_quem, tab_quando, tab_nova, tab_ia = st.tabs([
+tab_geral, tab_por_que, tab_quem, tab_quando, tab_series, tab_prev, tab_nova, tab_ia = st.tabs([
     ":material/monitoring: Visão geral",
     ":material/help: Por que saem",
     ":material/groups: Quem sai",
     ":material/calendar_month: Quando saem",
+    ":material/timeline: Séries temporais",
+    ":material/online_prediction: Previsão",
     ":material/upload_file: Nova entrevista",
     ":material/smart_toy: Consultor IA",
 ])
@@ -272,6 +279,14 @@ with tab_geral:
                         mode="lines", line=dict(color=MARINHO, width=2.5),
                         hovertemplate="média %{y:.1f}<extra></extra>")
         grafico(tema(fig, 360, hovermode="x unified", bargap=0.15, xaxis_hoverformat="%b/%Y"))
+        st.markdown(leitura(
+            "Cada <b>barra clara</b> é o número de militares que pediram desligamento naquele mês. A <b>linha escura</b> "
+            f"é a média móvel de {janela} meses: ela suaviza os altos e baixos de um mês para o outro e mostra a "
+            "direção geral da evasão (ajuste a janela em <i>Opções avançadas</i>).",
+            f"<b>O que procurar:</b> se a linha sobe de forma sustentada, a evasão está aumentando — não é só um mês "
+            f"ruim. O pico do período foi <b>{MESES[pico['Periodo'].month - 1]}/{pico['Periodo'].year}</b>, com "
+            f"{int(pico['Qtde'])} saídas. Lembre que a maior parte dos registros é sintética: confirme a tendência "
+            "no filtro <b>Reais</b>."), unsafe_allow_html=True)
 
     with c2, st.container(border=True):
         st.markdown(secao("O que motivou cada saída", "Motivo principal declarado · % do total"),
@@ -285,6 +300,12 @@ with tab_geral:
         ))
         grafico(tema(fig, 360, xaxis=dict(visible=False, range=[0, m["p"].max() * 1.22]),
                      yaxis=dict(tickfont=dict(color=INK, size=12)), bargap=0.5))
+        st.markdown(leitura(
+            "Cada barra é a fatia das saídas atribuída a um <b>motivo principal</b> — o motivo que o militar apontou "
+            "como decisivo. As fatias somam 100%.",
+            f"<b>{mot.index[0]}</b> domina com {pct(mot.iloc[0])}. Quanto mais concentrado em um motivo, mais "
+            "focada pode ser a ação de retenção. “Não Informado” alto indica entrevistas pouco conclusivas."),
+            unsafe_allow_html=True)
 
     with st.container(border=True):
         anual = dfp.groupby(dfp["Periodo"].dt.year).size().rename_axis("Ano").reset_index(name="Qtde")
@@ -298,6 +319,12 @@ with tab_geral:
                                text=anual["Qtde"], textposition="outside", cliponaxis=False,
                                textfont=dict(color=INK), hovertemplate="%{x}: %{y} desligamentos<extra></extra>"))
         grafico(tema(fig, 260, yaxis=dict(visible=False, range=[0, anual["Qtde"].max() * 1.2]), bargap=0.45))
+        st.markdown(leitura(
+            "Total de desligamentos em cada ano. É a leitura mais simples de <b>escala</b>: o problema está "
+            "crescendo de um ano para o outro?",
+            "A barra mais clara é o ano corrente, ainda <b>incompleto</b> — ela não deve ser comparada diretamente "
+            "com anos fechados." if ano_atual_incompleto else
+            "Todos os anos exibidos estão completos e podem ser comparados diretamente."), unsafe_allow_html=True)
 
 # ================================================================= 2. por que saem
 with tab_por_que:
@@ -326,6 +353,14 @@ with tab_por_que:
                           hovertemplate="%{fullData.name}: %{y:.0%} (%{customdata[0]})<extra></extra>")
         grafico(tema(fig, 360, yaxis=dict(tickformat=".0%", gridcolor="#eef0f3"), barcornerradius=0,
                      hovermode="x unified", bargap=0.3))
+        st.markdown(leitura(
+            "Cada barra é um período e sempre soma 100%; as cores mostram quanto cada motivo principal representou "
+            "nas saídas daquele período. O gráfico mostra <b>proporção</b>, não quantidade — para volumes, veja a "
+            "Visão geral.",
+            "<b>O que procurar:</b> uma cor que cresce de um período para o outro indica um motivo ganhando peso. "
+            "Por exemplo, se “Família / Vida Pessoal” aumenta, pesam cada vez mais as questões de movimentação e "
+            "vida familiar. Use o seletor para ver por ano, semestre ou trimestre (períodos menores têm menos casos "
+            "e variam mais)."), unsafe_allow_html=True)
 
     c1, c2 = st.columns(2, gap="medium")
     with c1, st.container(border=True):
@@ -339,6 +374,12 @@ with tab_por_que:
                                textfont=dict(color=INK), hovertemplate="%{y}: %{x:.0%}<extra></extra>"))
         grafico(tema(fig, 330, xaxis=dict(visible=False, range=[0, max(t.max(), 0.01) * 1.22]),
                      yaxis=dict(tickfont=dict(color=INK)), bargap=0.4))
+        st.markdown(leitura(
+            "Percentual de entrevistados que <b>mencionaram</b> cada tema, mesmo que não seja o motivo principal. "
+            "Uma pessoa pode citar vários temas, por isso as barras <b>não somam 100%</b>.",
+            "É a leitura <b>multicausal</b> da evasão: um tema muito citado mas pouco escolhido como motivo principal "
+            "funciona como fator de fundo — sozinho não faz o militar sair, mas pesa na decisão."),
+            unsafe_allow_html=True)
 
     with c2, st.container(border=True):
         st.markdown(secao("Menção a cada tema, ano a ano", "% dos entrevistados do ano que citam o tema"),
@@ -350,6 +391,11 @@ with tab_por_que:
         fig.update_traces(hovertemplate="%{y} em %{x}: %{z:.0f}%<extra></extra>", xgap=2, ygap=2)
         grafico(tema(fig, 330, coloraxis_showscale=False, xaxis=dict(side="top"),
                      yaxis=dict(tickfont=dict(color=INK))))
+        st.markdown(leitura(
+            "Cada célula é o % de entrevistados daquele ano que citou o tema; cor mais escura = mais citado. "
+            "Leia <b>cada linha da esquerda para a direita</b> para ver se um tema está ganhando ou perdendo força.",
+            "Anos com poucas entrevistas variam mais — uma mudança grande de um ano para o outro pode ser efeito de "
+            "amostra pequena, não uma mudança real."), unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown(secao("Quais temas aparecem juntos na mesma entrevista",
@@ -362,6 +408,12 @@ with tab_por_que:
         fig.update_traces(hovertemplate="%{y} + %{x}: %{z:.0f}%<extra></extra>", xgap=2, ygap=2)
         grafico(tema(fig, 360, coloraxis_showscale=False, xaxis=dict(side="top"),
                      yaxis=dict(tickfont=dict(color=INK))))
+        st.markdown(leitura(
+            "Cada célula fora da diagonal mostra o % de entrevistados que citou <b>os dois temas ao mesmo tempo</b>; "
+            "a diagonal é o total de cada tema sozinho. A matriz é simétrica (Concurso + Família = Família + Concurso).",
+            "<b>O que procurar:</b> pares com valor alto revelam <b>combinações de causas</b>. Por exemplo, "
+            "Concurso + Estudos sugere uma saída planejada; Família + Insatisfação sugere desgaste com a carreira. "
+            "Combinações frequentes pedem ações que atuem nas duas causas juntas."), unsafe_allow_html=True)
 
 # ================================================================= 3. quem sai
 with tab_quem:
@@ -379,6 +431,12 @@ with tab_quem:
             hovertemplate="%{customdata}: %{y}<extra></extra>",
         ))
         grafico(tema(fig, 330, yaxis=dict(visible=False, range=[0, pp.max() * 1.18]), bargap=0.35))
+        st.markdown(leitura(
+            "Número de desligamentos em cada posto/graduação, na <b>ordem hierárquica</b> (do mais moderno ao mais "
+            f"antigo). O posto com mais saídas está destacado: <b>{posto_top}</b>.",
+            "É uma contagem absoluta: postos com mais militares tendem a ter mais saídas. Para comparar a "
+            "<b>intensidade</b> entre postos, veja o gráfico 2 da aba <b>Séries temporais</b>, que usa percentuais."),
+            unsafe_allow_html=True)
 
     with c2, st.container(border=True):
         st.markdown(secao(
@@ -392,6 +450,12 @@ with tab_quem:
         fig.update_traces(marker_line=dict(color="#ffffff", width=2),
                           hovertemplate="%{fullData.name}: %{y}<extra></extra>")
         grafico(tema(fig, 330, barcornerradius=0, hovermode="x unified", bargap=0.4))
+        st.markdown(leitura(
+            "Cada barra é um ano, dividida entre <b>oficiais</b> e <b>praças</b>. A altura total é o volume do ano; "
+            "os segmentos mostram quanto veio de cada categoria.",
+            "Em barras empilhadas, só o segmento de baixo tem comparação visual confiável entre anos — o de cima "
+            "“flutua”. Leia a <b>proporção</b> dentro de cada ano e use o valor exato no hover."),
+            unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown(secao("Motivo principal dentro de cada posto",
@@ -406,6 +470,13 @@ with tab_quem:
         fig.update_traces(hovertemplate="%{y} · %{x}: %{z:.0f}%<extra></extra>", xgap=2, ygap=2)
         grafico(tema(fig, 380, coloraxis_showscale=False, xaxis=dict(side="top", tickfont=dict(color=INK)),
                      yaxis=dict(tickfont=dict(color=INK))))
+        st.markdown(leitura(
+            "Cada linha é um posto e <b>soma 100%</b>: as células mostram como as saídas daquele posto se dividem "
+            "entre os motivos. Por ser normalizado por linha, postos pequenos e grandes ficam comparáveis; o "
+            "<b>n</b> ao lado indica quantos casos sustentam cada linha.",
+            "<b>O que procurar:</b> um motivo que se destaca em um posto e não nos outros — sinal de uma causa "
+            "ligada àquela fase da carreira (ex.: concurso público pesando mais nos postos iniciais). Desconfie de "
+            "linhas com n pequeno: um ou dois casos mudam muito o percentual."), unsafe_allow_html=True)
 
 # ================================================================= 4. quando saem
 with tab_quando:
@@ -424,6 +495,13 @@ with tab_quando:
         fig.update_traces(hovertemplate="%{x}/%{y}: %{z} desligamentos<extra></extra>", xgap=2, ygap=2)
         grafico(tema(fig, 300, coloraxis_showscale=False, xaxis=dict(side="top", tickfont=dict(color=INK)),
                      yaxis=dict(tickfont=dict(color=INK))))
+        st.markdown(leitura(
+            "Cada linha é um ano e cada coluna um mês; o número é a quantidade de saídas e a cor, a intensidade "
+            "(mais escuro = mais saídas).",
+            "<b>O que procurar:</b> uma <b>coluna escura em vários anos</b> indica um mês que se repete como pico — um "
+            "padrão de calendário (ex.: datas de posse em concursos). Uma célula escura isolada é um evento "
+            "pontual. Para separar os dois com rigor estatístico, veja os gráficos 5 e 6 da aba "
+            "<b>Séries temporais</b>."), unsafe_allow_html=True)
 
     with st.container(border=True):
         h1, h2 = st.columns([3, 1.2])
@@ -463,10 +541,22 @@ with tab_quando:
                             line=dict(dash="dash", color=MARINHO, width=2.5),
                             hovertemplate="%{y:.1f}<extra>Projeção</extra>")
             grafico(tema(fig, 340, hovermode="x unified", xaxis_hoverformat="%b/%Y"))
-            st.markdown('<div class="nota">Use como referência de ordem de grandeza, não como previsão: a série '
-                        "é curta e majoritariamente sintética.</div>", unsafe_allow_html=True)
+            st.markdown(leitura(
+                "A <b>linha azul</b> é o histórico mensal; a <b>tracejada</b>, a projeção do modelo de Holt, que segue a "
+                "tendência recente e a amortece com o tempo (para não extrapolar uma alta ou queda indefinidamente). "
+                "A <b>faixa sombreada</b> é o intervalo onde o valor real deve cair em ~95% dos casos.",
+                "Use como <b>referência de ordem de grandeza</b>, não como previsão: a série é curta e majoritariamente "
+                "sintética. Para modelos completos, com validação e comparação (ARIMA e Prophet), veja a aba "
+                "<b>Previsão</b>."), unsafe_allow_html=True)
 
-# ================================================================= 5. nova entrevista
+# ================================================================= 5–6. séries temporais e previsão
+with tab_series:
+    aba_series(df_all, df, dfp, HOJE, janela, ocultar_futuro)
+
+with tab_prev:
+    aba_previsao(dfp, HOJE)
+
+# ================================================================= 7. nova entrevista
 with tab_nova:
     passo = st.empty()
     prox_id = proximo_id_pessoa(df_all)

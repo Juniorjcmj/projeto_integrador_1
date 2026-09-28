@@ -7,3 +7,4 @@ openai
 python-docx
 pypdf
 supabase==2.31.0
+prophet==1.4.0

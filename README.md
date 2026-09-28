@@ -61,9 +61,9 @@ priorização de medidas de retenção.
 
 ## 2. O produto: o que o painel responde
 
-Aplicação web em **Streamlit** com seis abas e uma barra lateral de filtros (origem dos registros,
+Aplicação web em **Streamlit** com oito abas e uma barra lateral de filtros (origem dos registros,
 período, categoria, motivo). O topo resume o recorte em **indicadores-chave** e em **achados escritos
-em linguagem natural**, gerados a partir dos dados filtrados.
+em linguagem natural**, gerados a partir dos dados filtrados. **Abaixo de cada gráfico há uma caixa "Como ler este gráfico"**, que explica o que ele mostra e o que procurar, citando os valores do recorte atual.
 
 | Aba | Conteúdo |
 |---|---|
@@ -71,6 +71,8 @@ em linguagem natural**, gerados a partir dos dados filtrados.
 | **Por que saem** | Composição dos motivos no tempo, % que cita cada tema, temas por ano, coocorrência de temas |
 | **Quem sai** | Saídas por posto (ordem hierárquica), oficiais × praças, motivo dentro de cada posto |
 | **Quando saem** | Mapa de sazonalidade mês × ano, projeção de referência (Holt) |
+| **Séries temporais** | Validação da base e gráficos 1–7: distribuição geral, perfil por posto com semáforo, visão mensal × trimestral, séries por motivo, sazonalidade anual, decomposição e anomalias |
+| **Previsão** | Gráficos 8–13: estacionariedade (ADF, ACF/PACF), ARIMA, diagnóstico dos resíduos, Prophet, componentes, comparação dos modelos e painel resumo |
 | **Nova entrevista** | Fluxo em 3 etapas: enviar → Nemotron extrai → revisar e gravar |
 | **Consultor IA** | Parecer executivo e conversa em linguagem natural sobre o recorte filtrado |
 
@@ -123,6 +125,7 @@ Projeto Integrador/
     ├── dados.py                  ← leitura/gravação: Supabase (principal) e Excel (reserva)
     ├── ia.py                     ← integração com o NVIDIA Nemotron (extração e consultor)
     ├── estilos.py                ← design system: cores, tipografia, tema dos gráficos
+    ├── analise_temporal.py       ← abas Séries temporais e Previsão (decomposição, anomalias, ARIMA, Prophet)
     ├── requirements.txt          ← dependências Python
     ├── .env.example              ← modelo do .env (chave NVIDIA)
     ├── .streamlit/
@@ -463,6 +466,31 @@ Para a leitura correta dos resultados, estes pontos devem acompanhar a técnica:
 - **Projeção de Holt** (tendência amortecida, `statsmodels`) com faixa de ~95%, apresentada como
   **referência de ordem de grandeza**, não como previsão (ver seção 12).
 
+**Séries temporais e previsão** (abas *Séries temporais* e *Previsão*). A sequência reproduz, adaptada ao
+tema, a análise de séries temporais já usada pelo grupo em outro trabalho da disciplina. Como os desligamentos
+são registrados por mês, as escalas foram ajustadas: diário → **mensal**, semanal → **trimestral**,
+dia da semana → **mês do ano**, 90 dias → **12 meses**.
+
+| # | Gráfico | Método |
+|---|---|---|
+| — | Validação da base | Checagens automáticas: esquema, IDs duplicados, cobertura, % sintético, datas futuras |
+| 1 | Distribuição geral | Barras por categoria, rosca de motivos, categoria × motivo normalizado por linha |
+| 2 | Perfil por posto | Volume e % que cita um tema, com semáforo calibrado por média ± 1 desvio-padrão |
+| 3 | Duas escalas | Série mensal com média móvel centrada e mediana; trimestres acima/abaixo da média |
+| 4 | Séries por motivo | Média móvel por grupo de motivo |
+| 5 | Sazonalidade anual | Total por mês do calendário e boxplot da distribuição de cada mês |
+| 6 | Decomposição | `seasonal_decompose` aditiva, ciclo de 12 meses (exige ≥ 24 meses) |
+| 7 | Anomalias | Limiar IQR (Q3 + 1,5 × IQR) e Z-Score (\|z\| > 3) |
+| 8 | Estacionariedade | Teste ADF na série e na 1ª diferença; ACF e PACF com IC 95% |
+| 9 | ARIMA | Ordem (p,d,q) escolhida pelo menor AIC em 18 combinações; treino 80% / teste 20% |
+| 10 | Diagnóstico | Resíduos padronizados, histograma × normal, Q-Q plot, correlograma |
+| 11 | Prophet | Tendência + sazonalidade anual aditiva; mesmo treino/teste do ARIMA |
+| 12 | Componentes | Tendência (com pontos de mudança) e efeito de cada mês, modelo reajustado na série inteira |
+| 13 | Painel resumo | Série + tendência, anomalias, composição por categoria, projeção de 12 meses |
+
+Os modelos usam só meses completos (o mês corrente é excluído) e exigem pelo menos 24 meses no recorte;
+abaixo disso, o painel explica por que o gráfico não é exibido. Métricas: MAE, RMSE e MAPE no período de teste.
+
 **Decisões de visualização**
 
 - **Títulos que dizem a conclusão** ("Capitão-Tenente é o posto com mais desligamentos"), não só o nome
@@ -548,7 +576,7 @@ Pendências conhecidas, em ordem de prioridade. Cada uma traz o impacto e a solu
 
 `streamlit 1.64.0` · `plotly 7.1.0` · `pandas 2.3.3` · `openpyxl 3.1.5` · `statsmodels 0.15.0` ·
 `openai 2.41.0` (cliente da API NVIDIA, compatível com OpenAI) · `python-docx 1.2.0` · `pypdf 6.10.2` ·
-`supabase 2.31.0` — modelo de IA: `nvidia/nemotron-3.5-lightning-30b-a3b` via NVIDIA NIM.
+`supabase 2.31.0` · `prophet 1.4.0` — modelo de IA: `nvidia/nemotron-3.5-lightning-30b-a3b` via NVIDIA NIM.
 
 ---
 
