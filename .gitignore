@@ -1,0 +1,5 @@
+.env
+.streamlit/secrets.toml
+google_credentials.json
+__pycache__/
+*.py[cod]

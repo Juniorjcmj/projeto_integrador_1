@@ -1,0 +1,9 @@
+﻿streamlit
+plotly
+pandas
+openpyxl
+statsmodels
+openai
+python-docx
+pypdf
+supabase==2.31.0
