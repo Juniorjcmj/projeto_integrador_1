@@ -119,8 +119,8 @@ Por isso o projeto usa uma **LLM** como etapa de extração:
 
 ```
 Projeto Integrador/
-├── dataset_sintetico.xlsx        ← base local (reserva/backup) — precisa ficar AQUI, fora de dashboard/
-└── dashboard/                    ← código do produto (execute os comandos a partir daqui)
+├── dataset_sintetico.xlsx        ← base local (reserva/backup) — precisa ficar AQUI, fora de pasta_do_app/
+└── pasta_do_app/                    ← código do produto (execute os comandos a partir daqui)
     ├── app.py                    ← painel Streamlit (interface, gráficos, fluxo de entrevista)
     ├── dados.py                  ← leitura/gravação: Supabase (principal) e Excel (reserva)
     ├── ia.py                     ← integração com o NVIDIA Nemotron (extração e consultor)
@@ -162,12 +162,12 @@ A barra lateral sempre mostra qual fonte está em uso.
 ### Passo a passo
 
 **1. Baixe o projeto** mantendo a estrutura da seção 4 (o `dataset_sintetico.xlsx` fica **ao lado** da
-pasta `dashboard/`, não dentro dela).
+pasta `pasta_do_app/`, não dentro dela).
 
-**2. Entre na pasta `dashboard`** — todos os comandos abaixo partem dela:
+**2. Entre na pasta `pasta_do_app`** — todos os comandos abaixo partem dela:
 
 ```bash
-cd "Projeto Integrador/dashboard"
+cd "Projeto Integrador/pasta_do_app"
 ```
 
 **3. Crie e ative um ambiente virtual**
@@ -200,7 +200,7 @@ streamlit run app.py
 
 O navegador abre em `http://localhost:8501`.
 
-> ⚠️ Rode o comando **de dentro de `dashboard/`**. O Streamlit procura `.streamlit/secrets.toml` na pasta
+> ⚠️ Rode o comando **de dentro de `pasta_do_app/`**. O Streamlit procura `.streamlit/secrets.toml` na pasta
 > de onde é executado; rodando de outra pasta, as chaves não são encontradas e o painel cai no modo local.
 
 ---
@@ -216,7 +216,7 @@ copy .streamlit\secrets.toml.example .streamlit\secrets.toml
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 ```
 
-Depois edite `dashboard/.streamlit/secrets.toml`:
+Depois edite `pasta_do_app/.streamlit/secrets.toml`:
 
 | Chave | Para que serve | Onde obter |
 |---|---|---|
@@ -240,7 +240,7 @@ Alternativa só para a NVIDIA: copie `.env.example` para `.env` e preencha `NVID
 
 *Pule esta seção se for usar apenas o modo local.*
 
-1. Crie um projeto em [supabase.com/dashboard](https://supabase.com/dashboard) (plano gratuito atende).
+1. Crie um projeto em [supabase.com/pasta_do_app](https://supabase.com/pasta_do_app) (plano gratuito atende).
 2. Abra o **SQL Editor**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e execute.
    O resultado final deve mostrar `rls = true` e `service_role:INSERT, service_role:SELECT`.
 3. Preencha `SUPABASE_URL` e `SUPABASE_SECRET_KEY` no `secrets.toml` (seção 6).
@@ -544,7 +544,7 @@ Pendências conhecidas, em ordem de prioridade. Cada uma traz o impacto e a solu
 | C1 | **O painel não tem login.** | Se publicado na internet, qualquer pessoa com o link vê os dados e pode inserir registros. | Usar apenas localmente, ou adicionar autenticação (ex.: `st.login` com provedor OIDC) antes de qualquer publicação. |
 | C2 | **O plano gratuito do Supabase pausa o projeto após ~7 dias sem uso.** | O painel cai no Excel e não grava novas entrevistas. | Reativar o projeto no dashboard do Supabase antes de usar/avaliar; o modo local garante a leitura. |
 | C3 | **Chaves reais na pasta de trabalho** (`.env`, `secrets.toml`, `google_credentials.json`). | Vazamento se a pasta for compactada inteira para entrega. | Montar o ZIP sem esses arquivos (só os `.example`); `google_credentials.json` é sobra da versão com Google Sheets e pode ser apagado. |
-| C4 | **O Excel fica fora da pasta do código** (`../dataset_sintetico.xlsx`). | Quem baixar só a pasta `dashboard/` fica sem a base local. | Manter a estrutura da seção 4 ou mover o Excel para dentro de `dashboard/data/`. |
+| C4 | **O Excel fica fora da pasta do código** (`../dataset_sintetico.xlsx`). | Quem baixar só a pasta `pasta_do_app/` fica sem a base local. | Manter a estrutura da seção 4 ou mover o Excel para dentro de `pasta_do_app/data/`. |
 | C5 | **Não há testes automatizados.** | Mudanças podem quebrar o fluxo sem aviso. | Testes para `normalizar_extracao`, `para_linha_db` e para o carregamento sem credenciais (`streamlit.testing`). |
 | C6 | **Sobras da tentativa com Google Sheets** no Drive do grupo (cópia nativa da planilha e projeto Apps Script sem uso). | Nenhum funcional; confusão sobre qual é a base oficial. | Apagar. A base oficial é o Supabase, com o Excel como reserva. |
 
@@ -584,10 +584,10 @@ Pendências conhecidas, em ordem de prioridade. Cada uma traz o impacto e a solu
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| Barra lateral mostra "Modo local (Excel)" mesmo com as chaves | Comando rodado fora de `dashboard/`, ou `secrets.toml` não criado | `cd dashboard` e `streamlit run app.py`; confira o nome do arquivo (sem `.example`) |
-| "Supabase indisponível" | Projeto pausado (plano gratuito) ou chave errada | Reative o projeto no dashboard do Supabase; confira se a chave é a **secreta** |
+| Barra lateral mostra "Modo local (Excel)" mesmo com as chaves | Comando rodado fora de `pasta_do_app/`, ou `secrets.toml` não criado | `cd pasta_do_app` e `streamlit run app.py`; confira o nome do arquivo (sem `.example`) |
+| "Supabase indisponível" | Projeto pausado (plano gratuito) ou chave errada | Reative o projeto no pasta_do_app do Supabase; confira se a chave é a **secreta** |
 | "IA indisponível" / botão de extração desabilitado | `NVIDIA_API_KEY` ausente | Preencha em `secrets.toml` ou `.env` |
 | "O ID PESSOA_xxx já existe no banco" | Outra pessoa gravou um registro ao mesmo tempo | Clique em **Atualizar** e grave de novo (o próximo ID é recalculado) |
 | `permission denied for table desligamentos` | `schema.sql` não executado, ou chave publicável em uso | Rode o `schema.sql` e use a chave secreta |
 | "Não foi possível extrair texto do arquivo" | PDF escaneado (imagem) | Cole o texto manualmente (ver pendência A5) |
-| Arquivo `dataset_sintetico.xlsx` não encontrado | Excel fora do lugar | Coloque-o na pasta acima de `dashboard/` (seção 4) |
+| Arquivo `dataset_sintetico.xlsx` não encontrado | Excel fora do lugar | Coloque-o na pasta acima de `pasta_do_app/` (seção 4) |
